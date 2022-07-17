@@ -36,6 +36,14 @@ type NetConfList struct {
 	Plugins      []*Net `json:"plugins,omitempty"`
 }
 
+type RangeConfiguration struct {
+	Addresses  []Address `json:"addresses,omitempty"`
+	OmitRanges []string  `json:"exclude,omitempty"`
+	Range      string    `json:"range"`
+	RangeStart net.IP    `json:"range_start,omitempty"`
+	RangeEnd   net.IP    `json:"range_end,omitempty"`
+}
+
 // IPAMConfig describes the expected json configuration for this plugin
 type IPAMConfig struct {
 	Name                string
