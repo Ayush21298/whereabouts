@@ -45,7 +45,7 @@ const (
 	addressGarbageCollectionFailed = "IPAddressGarbageCollectionFailed"
 )
 
-type garbageCollector func(ctx context.Context, mode int, ipamConf types.IPAMConfig, containerID string, podRef string) (net.IPNet, error)
+type garbageCollector func(ctx context.Context, mode int, ipamConf types.IPAMConfig, containerID string, podRef string) ([]net.IPNet, error)
 
 type PodController struct {
 	arePodsSynched          cache.InformerSynced
