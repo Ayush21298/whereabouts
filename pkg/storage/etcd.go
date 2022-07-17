@@ -163,27 +163,28 @@ func (p *ETCDIPPool) Update(ctx context.Context, reservations []types.IPReservat
 }
 
 // IPManagement manages ip allocation and deallocation from a storage perspective
-func IPManagementEtcd(ctx context.Context, mode int, ipamConf types.IPAMConfig, containerID string, podRef string) (net.IPNet, error) {
+func IPManagementEtcd(ctx context.Context, mode int, ipamConf types.IPAMConfig, containerID string, podRef string) ([]net.IPNet, error) {
 
 	logging.Debugf("IPManagement -- mode: %v / host: %v / containerID: %v / podRef: %v", mode, ipamConf.EtcdHost, containerID, podRef)
 
+	var newips []net.IPNet
 	var newip net.IPNet
 	// Skip invalid modes
 	switch mode {
 	case types.Allocate, types.Deallocate:
 	default:
-		return newip, fmt.Errorf("got an unknown mode passed to IPManagement: %v", mode)
+		return newips, fmt.Errorf("got an unknown mode passed to IPManagement: %v", mode)
 	}
 
 	var ipam Store
 	var pool IPPool
 	var err error
 	if ipamConf.Datastore != types.DatastoreETCD {
-		return net.IPNet{}, logging.Errorf("wrong 'datastore' value in IPAM config: %s", ipamConf.Datastore)
+		return newips, logging.Errorf("wrong 'datastore' value in IPAM config: %s", ipamConf.Datastore)
 	}
 	ipam, err = NewETCDIPAM(ctx, ipamConf)
 	if err != nil {
-		return newip, logging.Errorf("IPAM %s client initialization error: %v", ipamConf.Datastore, err)
+		return newips, logging.Errorf("IPAM %s client initialization error: %v", ipamConf.Datastore, err)
 	}
 	defer ipam.Close()
 
@@ -193,55 +194,58 @@ func IPManagementEtcd(ctx context.Context, mode int, ipamConf types.IPAMConfig, 
 	// Check our connectivity first
 	if err := ipam.Status(requestCtx); err != nil {
 		logging.Errorf("IPAM connectivity error: %v", err)
-		return newip, err
+		return newips, err
 	}
 
 	// handle the ip add/del until successful
-RETRYLOOP:
-	for j := 0; j < DatastoreRetries; j++ {
-		select {
-		case <-requestCtx.Done():
-			return newip, nil
-		default:
-			// retry the IPAM loop if the context has not been cancelled
-		}
-
-		pool, err = ipam.GetIPPool(requestCtx, ipamConf.Range)
-		if err != nil {
-			logging.Errorf("IPAM error reading pool allocations (attempt: %d): %v", j, err)
-			if e, ok := err.(Temporary); ok && e.Temporary() {
-				continue
+	for _, ipRange := range ipamConf.IPRanges {
+	RETRYLOOP:
+		for j := 0; j < DatastoreRetries; j++ {
+			select {
+			case <-requestCtx.Done():
+				break RETRYLOOP
+			default:
+				// retry the IPAM loop if the context has not been cancelled
 			}
-			return newip, err
-		}
 
-		reservelist := pool.Allocations()
-		var updatedreservelist []types.IPReservation
-		switch mode {
-		case types.Allocate:
-			newip, updatedreservelist, err = allocate.AssignIP(ipamConf, reservelist, containerID, podRef)
+			pool, err = ipam.GetIPPool(requestCtx, ipRange.Range)
 			if err != nil {
-				logging.Errorf("Error assigning IP: %v", err)
-				return newip, err
+				logging.Errorf("IPAM error reading pool allocations (attempt: %d): %v", j, err)
+				if e, ok := err.(Temporary); ok && e.Temporary() {
+					continue
+				}
+				return newips, err
 			}
-		case types.Deallocate:
-			updatedreservelist, _, err = allocate.DeallocateIP(reservelist, containerID)
-			if err != nil {
-				logging.Errorf("Error deallocating IP: %v", err)
-				return newip, err
-			}
-		}
 
-		err = pool.Update(requestCtx, updatedreservelist)
-		if err != nil {
-			logging.Errorf("IPAM error updating pool (attempt: %d): %v", j, err)
-			if e, ok := err.(Temporary); ok && e.Temporary() {
-				continue
+			reservelist := pool.Allocations()
+			var updatedreservelist []types.IPReservation
+			switch mode {
+			case types.Allocate:
+				newip, updatedreservelist, err = allocate.AssignIP(ipRange, reservelist, containerID, podRef)
+				if err != nil {
+					logging.Errorf("Error assigning IP: %v", err)
+					return newips, err
+				}
+			case types.Deallocate:
+				updatedreservelist, _, err = allocate.DeallocateIP(reservelist, containerID)
+				if err != nil {
+					logging.Errorf("Error deallocating IP: %v", err)
+					return newips, err
+				}
+			}
+
+			err = pool.Update(requestCtx, updatedreservelist)
+			if err != nil {
+				logging.Errorf("IPAM error updating pool (attempt: %d): %v", j, err)
+				if e, ok := err.(Temporary); ok && e.Temporary() {
+					continue
+				}
+				break RETRYLOOP
 			}
 			break RETRYLOOP
 		}
-		break RETRYLOOP
-	}
 
-	return newip, err
+		newips = append(newips, newip)
+	}
+	return newips, err
 }
