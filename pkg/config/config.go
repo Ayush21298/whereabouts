@@ -111,30 +111,32 @@ func LoadIPAMConfig(bytes []byte, envArgs string, extraConfigPaths ...string) (*
 		logging.Debugf("Used defaults from parsed flat file config @ %s", foundflatfile)
 	}
 
-	if r := strings.SplitN(n.IPAM.Range, "-", 2); len(r) == 2 {
-		firstip := net.ParseIP(r[0])
-		if firstip == nil {
-			return nil, "", fmt.Errorf("invalid range start IP: %s", r[0])
-		}
-		lastip, ipNet, err := net.ParseCIDR(r[1])
-		if err != nil {
-			return nil, "", fmt.Errorf("invalid CIDR (do you have the 'range' parameter set for Whereabouts?) '%s': %s", r[1], err)
-		}
-		if !ipNet.Contains(firstip) {
-			return nil, "", fmt.Errorf("invalid range start for CIDR %s: %s", ipNet.String(), firstip)
-		}
-		n.IPAM.Range = ipNet.String()
-		n.IPAM.RangeStart = firstip
-		n.IPAM.RangeEnd = lastip
-	} else {
-		firstip, ipNet, err := net.ParseCIDR(n.IPAM.Range)
-		if err != nil {
-			return nil, "", fmt.Errorf("invalid CIDR %s: %s", n.IPAM.Range, err)
-		}
-		n.IPAM.Range = ipNet.String()
-		if n.IPAM.RangeStart == nil {
-			firstip = net.ParseIP(firstip.Mask(ipNet.Mask).String()) // if range_start is not net then pick the first network address
-			n.IPAM.RangeStart = firstip
+	for idx, _ := range n.IPAM.IPRanges {
+		if r := strings.SplitN(n.IPAM.IPRanges[idx].Range, "-", 2); len(r) == 2 {
+			firstip := net.ParseIP(r[0])
+			if firstip == nil {
+				return nil, "", fmt.Errorf("invalid range start IP: %s", r[0])
+			}
+			lastip, ipNet, err := net.ParseCIDR(r[1])
+			if err != nil {
+				return nil, "", fmt.Errorf("invalid CIDR (do you have the 'range' parameter set for Whereabouts?) '%s': %s", r[1], err)
+			}
+			if !ipNet.Contains(firstip) {
+				return nil, "", fmt.Errorf("invalid range start for CIDR %s: %s", ipNet.String(), firstip)
+			}
+			n.IPAM.IPRanges[idx].Range = ipNet.String()
+			n.IPAM.IPRanges[idx].RangeStart = firstip
+			n.IPAM.IPRanges[idx].RangeEnd = lastip
+		} else {
+			firstip, ipNet, err := net.ParseCIDR(n.IPAM.IPRanges[idx].Range)
+			if err != nil {
+				return nil, "", fmt.Errorf("invalid CIDR %s: %s", n.IPAM.IPRanges[idx].Range, err)
+			}
+			n.IPAM.Range = ipNet.String()
+			if n.IPAM.IPRanges[idx].RangeStart == nil {
+				firstip = net.ParseIP(firstip.Mask(ipNet.Mask).String()) // if range_start is not net then pick the first network address
+				n.IPAM.IPRanges[idx].RangeStart = firstip
+			}
 		}
 	}
 
