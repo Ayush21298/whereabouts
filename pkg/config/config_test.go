@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	// "os"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -28,7 +27,9 @@ var _ = Describe("Allocation operations", func() {
           "type": "whereabouts",
           "log_file" : "/tmp/whereabouts.log",
           "log_level" : "debug",
-          "etcd_host": "foo",
+          "kubernetes": {
+            "kubeconfig": "/etc/cni/net.d/whereabouts.d/whereabouts.kubeconfig"
+          },
           "range": "192.168.1.5-192.168.1.25/24",
           "gateway": "192.168.10.1"
         }
@@ -38,7 +39,6 @@ var _ = Describe("Allocation operations", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ipamconfig.LogLevel).To(Equal("debug"))
 		Expect(ipamconfig.LogFile).To(Equal("/tmp/whereabouts.log"))
-		Expect(ipamconfig.EtcdHost).To(Equal("foo"))
 		Expect(ipamconfig.Range).To(Equal("192.168.1.0/24"))
 		Expect(ipamconfig.RangeStart).To(Equal(net.ParseIP("192.168.1.5")))
 		Expect(ipamconfig.RangeEnd).To(Equal(net.ParseIP("192.168.1.25")))
@@ -89,7 +89,6 @@ var _ = Describe("Allocation operations", func() {
 		Expect(ipamconfig.RangeStart.String()).To(Equal("192.168.2.223"))
 		// Gateway should remain unchanged from conf due to preference for primary config
 		Expect(ipamconfig.Gateway).To(Equal(net.ParseIP("192.168.10.1")))
-		Expect(ipamconfig.Datastore).To(Equal("kubernetes"))
 		Expect(ipamconfig.Kubernetes.KubeConfigPath).To(Equal("/etc/cni/net.d/whereabouts.d/whereabouts.kubeconfig"))
 
 		Expect(ipamconfig.LeaderLeaseDuration).To(Equal(3000))
@@ -116,7 +115,9 @@ var _ = Describe("Allocation operations", func() {
                     "gateway": "192.168.10.1",
                     "log_level": "debug",
                     "log_file": "/tmp/whereabouts.log",
-                    "etcd_host": "foo"
+					"kubernetes": {
+					  "kubeconfig": "/etc/cni/net.d/whereabouts.d/whereabouts.kubeconfig"
+					}
                 }
             }
         ]
@@ -127,7 +128,6 @@ var _ = Describe("Allocation operations", func() {
 		Expect(ipamconfig.LogLevel).To(Equal("debug"))
 		Expect(ipamconfig.LogFile).To(Equal("/tmp/whereabouts.log"))
 		Expect(ipamconfig.Range).To(Equal("192.168.1.0/24"))
-		Expect(ipamconfig.EtcdHost).To(Equal("foo"))
 		Expect(ipamconfig.RangeStart).To(Equal(net.ParseIP("192.168.1.5")))
 		Expect(ipamconfig.RangeEnd).To(Equal(net.ParseIP("192.168.1.25")))
 		Expect(ipamconfig.Gateway).To(Equal(net.ParseIP("192.168.10.1")))
@@ -150,5 +150,136 @@ var _ = Describe("Allocation operations", func() {
 
 		_, _, err := LoadIPAMConfig([]byte(conf), "")
 		Expect(err).To(MatchError(&InvalidPluginError{ipamType: wrongPluginType}))
+	})
+
+	It("allows for leading zeroes in the range in start/end range format", func() {
+		conf := `{
+      "cniVersion": "0.3.1",
+      "name": "mynet",
+      "type": "ipvlan",
+      "master": "foo0",
+        "ipam": {
+          "type": "whereabouts",
+          "log_file" : "/tmp/whereabouts.log",
+          "log_level" : "debug",
+          "kubernetes": {
+            "kubeconfig": "/etc/cni/net.d/whereabouts.d/whereabouts.kubeconfig"
+          },
+          "range": "00192.00168.1.5-000000192.168.1.25/24",
+          "gateway": "192.168.10.1"
+        }
+      }`
+
+		ipamConfig, _, err := LoadIPAMConfig([]byte(conf), "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ipamConfig.Range).To(Equal("192.168.1.0/24"))
+		Expect(ipamConfig.RangeStart).To(Equal(net.ParseIP("192.168.1.5")))
+		Expect(ipamConfig.RangeEnd).To(Equal(net.ParseIP("192.168.1.25")))
+	})
+
+	It("allows for leading zeroes in the range", func() {
+		conf := `{
+      "cniVersion": "0.3.1",
+      "name": "mynet",
+      "type": "ipvlan",
+      "master": "foo0",
+        "ipam": {
+          "type": "whereabouts",
+          "log_file" : "/tmp/whereabouts.log",
+          "log_level" : "debug",
+          "kubernetes": {
+            "kubeconfig": "/etc/cni/net.d/whereabouts.d/whereabouts.kubeconfig"
+          },
+          "range": "00192.00168.1.0/24",
+          "gateway": "192.168.10.1"
+        }
+      }`
+
+		ipamConfig, _, err := LoadIPAMConfig([]byte(conf), "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ipamConfig.Range).To(Equal("192.168.1.0/24"))
+		Expect(ipamConfig.RangeStart).To(Equal(net.ParseIP("192.168.1.0")))
+	})
+
+	It("allows for leading zeroes in the range when the start range is provided", func() {
+		conf := `{
+      "cniVersion": "0.3.1",
+      "name": "mynet",
+      "type": "ipvlan",
+      "master": "foo0",
+        "ipam": {
+          "type": "whereabouts",
+          "log_file" : "/tmp/whereabouts.log",
+          "log_level" : "debug",
+          "kubernetes": {
+            "kubeconfig": "/etc/cni/net.d/whereabouts.d/whereabouts.kubeconfig"
+          },
+          "range": "00192.00168.1.0/24",
+          "range_start": "00192.00168.1.44",
+          "gateway": "192.168.10.1"
+        }
+      }`
+
+		ipamConfig, _, err := LoadIPAMConfig([]byte(conf), "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ipamConfig.Range).To(Equal("192.168.1.0/24"))
+		Expect(ipamConfig.RangeStart).To(Equal(net.ParseIP("192.168.1.44")))
+	})
+
+	It("allows for leading zeroes in the range when the start and end ranges are provided", func() {
+		conf := `{
+      "cniVersion": "0.3.1",
+      "name": "mynet",
+      "type": "ipvlan",
+      "master": "foo0",
+        "ipam": {
+          "type": "whereabouts",
+          "log_file" : "/tmp/whereabouts.log",
+          "log_level" : "debug",
+          "kubernetes": {
+            "kubeconfig": "/etc/cni/net.d/whereabouts.d/whereabouts.kubeconfig"
+          },
+          "range": "00192.00168.1.0/24",
+          "range_start": "00192.00168.1.44",
+          "range_end": "00192.00168.01.209",
+          "gateway": "192.168.10.1"
+        }
+      }`
+
+		ipamConfig, _, err := LoadIPAMConfig([]byte(conf), "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ipamConfig.Range).To(Equal("192.168.1.0/24"))
+		Expect(ipamConfig.RangeStart).To(Equal(net.ParseIP("192.168.1.44")))
+		Expect(ipamConfig.RangeEnd).To(Equal(net.ParseIP("192.168.1.209")))
+	})
+
+	It("can unmarshall the cronjob expression", func() {
+		conf := `{
+      "cniVersion": "0.3.1",
+      "name": "mynet",
+      "type": "ipvlan",
+      "master": "foo0",
+        "ipam": {
+          "type": "whereabouts",
+          "log_file" : "/tmp/whereabouts.log",
+          "log_level" : "debug",
+          "kubernetes": {
+            "kubeconfig": "/etc/cni/net.d/whereabouts.d/whereabouts.kubeconfig"
+          },
+          "range": "00192.00168.1.0/24",
+          "range_start": "00192.00168.1.44",
+          "range_end": "00192.00168.01.209",
+          "gateway": "192.168.10.1",
+          "reconciler_cron_expression": "30 4 * * *"
+        }
+      }`
+
+		ipamConfig, _, err := LoadIPAMConfig([]byte(conf), "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ipamConfig.Range).To(Equal("192.168.1.0/24"))
+		Expect(ipamConfig.RangeStart).To(Equal(net.ParseIP("192.168.1.44")))
+		Expect(ipamConfig.RangeEnd).To(Equal(net.ParseIP("192.168.1.209")))
+		Expect(ipamConfig.RangeEnd).To(Equal(net.ParseIP("192.168.1.209")))
+		Expect(ipamConfig.ReconcilerCronExpression).To(Equal("30 4 * * *"))
 	})
 })
