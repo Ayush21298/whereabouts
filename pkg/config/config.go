@@ -91,7 +91,7 @@ func LoadIPAMConfig(bytes []byte, envArgs string, extraConfigPaths ...string) (*
     n.IPAM.IPRanges = append(n.IPAM.IPRanges, oldRange)
   }
 
-	for idx, _ := range n.IPAM.IPRanges {
+	for idx := range n.IPAM.IPRanges {
 		if r := strings.SplitN(n.IPAM.IPRanges[idx].Range, "-", 2); len(r) == 2 {
 			firstip := netutils.ParseIPSloppy(r[0])
 			if firstip == nil {
@@ -112,7 +112,7 @@ func LoadIPAMConfig(bytes []byte, envArgs string, extraConfigPaths ...string) (*
 			if err != nil {
 				return nil, "", fmt.Errorf("invalid CIDR %s: %s", n.IPAM.IPRanges[idx].Range, err)
 			}
-			n.IPAM.Range = ipNet.String()
+			n.IPAM.IPRanges[idx].Range = ipNet.String()
 			if n.IPAM.IPRanges[idx].RangeStart == nil {
 				firstip = netutils.ParseIPSloppy(firstip.Mask(ipNet.Mask).String()) // if range_start is not net then pick the first network address
 				n.IPAM.IPRanges[idx].RangeStart = firstip

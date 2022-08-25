@@ -48,7 +48,7 @@ func newDummyPodController(
 		netAttachDefInformerFactory,
 		nil,
 		recorder,
-		func(_ context.Context, _ int, _ types.IPAMConfig, _ string, podRef string) (net.IPNet, error) {
+		func(_ context.Context, _ int, _ types.IPAMConfig, _ string, podRef string) ([]net.IPNet, error) {
 			ipPools := castToIPPool(wbInformerFactory.Whereabouts().V1alpha1().IPPools().Informer().GetStore().List())
 			for _, pool := range ipPools {
 				for index, allocation := range pool.Spec.Allocations {
@@ -56,13 +56,13 @@ func newDummyPodController(
 						delete(pool.Spec.Allocations, index)
 						_, err := wbClient.WhereaboutsV1alpha1().IPPools(ipPoolsNamespace()).Update(context.TODO(), &pool, metav1.UpdateOptions{})
 						if err != nil {
-							return net.IPNet{}, err // no need to bother computing the allocated range
+							return []net.IPNet{}, err // no need to bother computing the allocated range
 						}
 					}
 				}
 			}
 
-			return net.IPNet{}, nil
+			return []net.IPNet{}, nil
 		})
 
 	alwaysReady := func() bool { return true }
