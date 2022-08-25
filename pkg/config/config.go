@@ -76,6 +76,21 @@ func LoadIPAMConfig(bytes []byte, envArgs string, extraConfigPaths ...string) (*
 		logging.Debugf("Used defaults from parsed flat file config @ %s", foundflatfile)
 	}
 
+  if n.IPAM.Range != "" {
+
+    logging.Debugf("Deprecated Range present in IPAM config. It will soon be removed in later releases. Please use IPRanges instead")
+
+    oldRange := types.RangeConfiguration {
+      Addresses: n.IPAM.Addresses,
+      OmitRanges: n.IPAM.OmitRanges,
+      Range: n.IPAM.Range,
+      RangeStart: n.IPAM.RangeStart,
+      RangeEnd: n.IPAM.RangeEnd,
+    }
+
+    n.IPAM.IPRanges = append(n.IPAM.IPRanges, oldRange)
+  }
+
 	for idx, _ := range n.IPAM.IPRanges {
 		if r := strings.SplitN(n.IPAM.IPRanges[idx].Range, "-", 2); len(r) == 2 {
 			firstip := netutils.ParseIPSloppy(r[0])
