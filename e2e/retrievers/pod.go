@@ -19,15 +19,15 @@ func filterNetworkStatus(
 	return nil
 }
 
-func SecondaryIfaceIPValue(pod *core.Pod) (string, error) {
+func SecondaryIfaceIPValue(pod *core.Pod) ([]string, error) {
 	podNetStatus, found := pod.Annotations[nettypes.NetworkStatusAnnot]
 	if !found {
-		return "", fmt.Errorf("the pod must feature the `networks-status` annotation")
+		return []string{}, fmt.Errorf("the pod must feature the `networks-status` annotation")
 	}
 
 	var netStatus []nettypes.NetworkStatus
 	if err := json.Unmarshal([]byte(podNetStatus), &netStatus); err != nil {
-		return "", err
+		return []string{}, err
 	}
 
 	secondaryInterfaceNetworkStatus := filterNetworkStatus(netStatus, func(status nettypes.NetworkStatus) bool {
@@ -35,12 +35,12 @@ func SecondaryIfaceIPValue(pod *core.Pod) (string, error) {
 	})
 
 	if secondaryInterfaceNetworkStatus == nil {
-		return "", fmt.Errorf("the pod does not have the requested secondary interface")
+		return []string{}, fmt.Errorf("the pod does not have the requested secondary interface")
 	}
 
 	if len(secondaryInterfaceNetworkStatus.IPs) == 0 {
-		return "", fmt.Errorf("the pod does not have IPs for its secondary interfaces")
+		return []string{}, fmt.Errorf("the pod does not have IPs for its secondary interfaces")
 	}
 
-	return secondaryInterfaceNetworkStatus.IPs[0], nil
+	return secondaryInterfaceNetworkStatus.IPs, nil
 }

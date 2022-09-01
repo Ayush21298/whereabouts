@@ -56,6 +56,10 @@ var _ = Describe("Whereabouts functionality", func() {
 			netAttachDef *nettypes.NetworkAttachmentDefinition
 			pod          *core.Pod
 			replicaSet   *v1.ReplicaSet
+
+      dualStackIPv4Range = "11.11.0.0/16"
+      dualStackIPv6Range = "abcd::0/64"
+      testIPRanges       = []string { dualStackIPv4Range, dualStackIPv6Range }
 		)
 
 		BeforeEach(func() {
@@ -73,7 +77,7 @@ var _ = Describe("Whereabouts functionality", func() {
 			clientInfo, err = wbtestclient.NewClientInfo(config)
 			Expect(err).NotTo(HaveOccurred())
 
-			netAttachDef = macvlanNetworkWithWhereaboutsIPAMNetwork(testNetworkName, testNamespace, ipv4TestRange, []string{})
+			netAttachDef = macvlanNetworkWithWhereaboutsIPAMNetwork(testNetworkName, testNamespace, ipv4TestRange, testIPRanges)
 
 			By("creating a NetworkAttachmentDefinition for whereabouts")
 			_, err = clientInfo.AddNetAttachDef(netAttachDef)
@@ -104,11 +108,13 @@ var _ = Describe("Whereabouts functionality", func() {
 				Expect(clientInfo.DeletePod(pod)).To(Succeed())
 			})
 
-			It("allocates a single pod within the correct IP range", func() {
-				By("checking pod IP is within whereabouts IPAM range")
-				secondaryIfaceIP, err := retrievers.SecondaryIfaceIPValue(pod)
+			It("allocates a single pod within the correct IP ranges", func() {
+				By("checking pod IP is within whereabouts IPAM ranges")
+				secondaryIfaceIPs, err := retrievers.SecondaryIfaceIPValue(pod)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(inRange(ipv4TestRange, secondaryIfaceIP)).To(Succeed())
+				Expect(inRange(dualStackIPv4Range, secondaryIfaceIPs[0])).To(Succeed())
+				Expect(inRange(dualStackIPv6Range, secondaryIfaceIPs[1])).To(Succeed())
+				Expect(inRange(ipv4TestRange, secondaryIfaceIPs[2])).To(Succeed())
 			})
 		})
 
