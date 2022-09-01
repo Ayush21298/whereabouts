@@ -73,7 +73,7 @@ var _ = Describe("Whereabouts functionality", func() {
 			clientInfo, err = wbtestclient.NewClientInfo(config)
 			Expect(err).NotTo(HaveOccurred())
 
-			netAttachDef = macvlanNetworkWithWhereaboutsIPAMNetwork(testNetworkName, testNamespace, ipv4TestRange)
+			netAttachDef = macvlanNetworkWithWhereaboutsIPAMNetwork(testNetworkName, testNamespace, ipv4TestRange, []string{})
 
 			By("creating a NetworkAttachmentDefinition for whereabouts")
 			_, err = clientInfo.AddNetAttachDef(netAttachDef)
@@ -297,7 +297,7 @@ var _ = Describe("Whereabouts functionality", func() {
 				BeforeEach(func() {
 					var err error
 					tinyNetwork, err = clientInfo.AddNetAttachDef(
-						macvlanNetworkWithWhereaboutsIPAMNetwork(networkName, namespace, rangeWithTwoIPs))
+						macvlanNetworkWithWhereaboutsIPAMNetwork(networkName, namespace, rangeWithTwoIPs, []string{}))
 					Expect(err).NotTo(HaveOccurred())
 
 					_, err = clientInfo.ProvisionStatefulSet(statefulSetName, namespace, serviceName, replicaNumber, networkName)
@@ -460,7 +460,7 @@ func generateNetAttachDefSpec(name, namespace, config string) *nettypes.NetworkA
 	}
 }
 
-func macvlanNetworkWithWhereaboutsIPAMNetwork(networkName string, namespaceName string, ipRange string) *nettypes.NetworkAttachmentDefinition {
+func macvlanNetworkWithWhereaboutsIPAMNetwork(networkName string, namespaceName string, ipRange string, ipRanges []string) *nettypes.NetworkAttachmentDefinition {
 	macvlanConfig := fmt.Sprintf(`{
         "cniVersion": "0.3.0",
         "disableCheck": true,
@@ -475,12 +475,13 @@ func macvlanNetworkWithWhereaboutsIPAMNetwork(networkName string, namespaceName 
                     "leader_renew_deadline": 1000,
                     "leader_retry_period": 500,
                     "range": "%s",
+                    "ipRanges", "%s",
                     "log_level": "debug",
                     "log_file": "/tmp/wb"
                 }
             }
         ]
-    }`, ipRange)
+    }`, ipRange, createIPRanges(ipRanges))
 	return generateNetAttachDefSpec(networkName, namespaceName, macvlanConfig)
 }
 
@@ -495,4 +496,14 @@ func inRange(cidr string, ip string) error {
 	}
 
 	return fmt.Errorf("ip [%s] is NOT in range %s", ip, cidr)
+}
+
+func createIPRanges(ranges []string) string {
+  formattedRanges := []string{}
+  for _, ipRange := range(ranges) {
+    singleRange := fmt.Sprintf(`{"range" : "%s"}`, ipRange)
+    formattedRanges = append(formattedRanges, singleRange)
+  }
+  ipRanges := "[" + strings.Join(formattedRanges[:], ",") + "]"
+  return ipRanges
 }
