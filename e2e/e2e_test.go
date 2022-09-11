@@ -481,7 +481,7 @@ func macvlanNetworkWithWhereaboutsIPAMNetwork(networkName string, namespaceName 
                     "leader_renew_deadline": 1000,
                     "leader_retry_period": 500,
                     "range": "%s",
-                    "ipRanges", "%s",
+                    "ipRanges": %s,
                     "log_level": "debug",
                     "log_file": "/tmp/wb"
                 }
@@ -508,7 +508,7 @@ func inRange(cidr string, ip string) error {
 func createIPRanges(ranges []string) string {
   formattedRanges := []string{}
   for _, ipRange := range(ranges) {
-    singleRange := fmt.Sprintf(`{"range" : "%s"}`, ipRange)
+    singleRange := fmt.Sprintf(`{"range": "%s"}`, ipRange)
     formattedRanges = append(formattedRanges, singleRange)
   }
   ipRanges := "[" + strings.Join(formattedRanges[:], ",") + "]"
