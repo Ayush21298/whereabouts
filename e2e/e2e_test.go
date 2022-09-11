@@ -43,23 +43,25 @@ func TestWhereaboutsE2E(t *testing.T) {
 var _ = Describe("Whereabouts functionality", func() {
 	Context("Test setup", func() {
 		const (
-			testNamespace   = "default"
-			ipv4TestRange   = "10.10.0.0/16"
-			testNetworkName = "wa-nad"
-			rsName          = "whereabouts-scale-test"
-			ipPoolName      = "10.10.0.0/16"
+			testNamespace            = "default"
+			ipv4TestRange            = "10.10.0.0/16"
+			testNetworkName          = "wa-nad"
+			testDualStackNetworkName = "wa-dualstack-nad"
+			rsName                   = "whereabouts-scale-test"
+			ipPoolName               = "10.10.0.0/16"
 		)
 
 		var (
-			clientInfo   *wbtestclient.ClientInfo
-			testConfig   *testenv.Configuration
-			netAttachDef *nettypes.NetworkAttachmentDefinition
-			pod          *core.Pod
-			replicaSet   *v1.ReplicaSet
+			clientInfo            *wbtestclient.ClientInfo
+			testConfig            *testenv.Configuration
+			netAttachDef          *nettypes.NetworkAttachmentDefinition
+			netAttachDefDualStack *nettypes.NetworkAttachmentDefinition
+			pod                   *core.Pod
+			replicaSet            *v1.ReplicaSet
 
-			dualStackIPv4Range = "11.11.0.0/16"
-			dualStackIPv6Range = "abcd::0/64"
-			//      testIPRanges       = []string { dualStackIPv4Range, dualStackIPv6Range }
+			dualStackIPv4Range    = "11.11.0.0/16"
+			dualStackIPv6Range    = "abcd::0/64"
+			testIPRangesDualStack = []string{dualStackIPv4Range, dualStackIPv6Range}
 		)
 
 		BeforeEach(func() {
@@ -106,6 +108,79 @@ var _ = Describe("Whereabouts functionality", func() {
 			AfterEach(func() {
 				By("deleting pod with whereabouts net-attach-def")
 				Expect(clientInfo.DeletePod(pod)).To(Succeed())
+			})
+
+			It("allocates a single pod within the correct IP range", func() {
+				By("checking pod IP is within whereabouts IPAM range")
+				secondaryIfaceIPs, err := retrievers.SecondaryIfaceIPValue(pod)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(inRange(ipv4TestRange, secondaryIfaceIPs[0])).To(Succeed())
+			})
+		})
+
+		Context("DualStack test (IPRanges without old range)", func() {
+			BeforeEach(func() {
+				const dualstackPodName = "whereabouts-dualstack-test"
+				var err error
+
+				netAttachDefDualStack = macvlanNetworkWithWhereaboutsIPAMNetwork(testDualStackNetworkName, testNamespace, "", testIPRangesDualStack)
+
+				By("creating DualStack NetworkAttachmentDefinition for whereabouts")
+				_, err = clientInfo.AddNetAttachDef(netAttachDefDualStack)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("creating a pod with whereabouts net-attach-def")
+				pod, err = clientInfo.ProvisionPod(
+					dualstackPodName,
+					testNamespace,
+					podTierLabel(dualstackPodName),
+					entities.PodNetworkSelectionElements(testDualStackNetworkName),
+				)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				By("deleting pod with whereabouts net-attach-def")
+				Expect(clientInfo.DeletePod(pod)).To(Succeed())
+				By("deleting DualStack NetworkAttachmentDefinition for whereabouts")
+				Expect(clientInfo.DelNetAttachDef(netAttachDefDualStack)).To(Succeed())
+			})
+
+			It("allocates a single pod within the correct IP ranges", func() {
+				By("checking pod IP is within whereabouts IPAM ranges")
+				secondaryIfaceIPs, err := retrievers.SecondaryIfaceIPValue(pod)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(inRange(dualStackIPv4Range, secondaryIfaceIPs[0])).To(Succeed())
+				Expect(inRange(dualStackIPv6Range, secondaryIfaceIPs[1])).To(Succeed())
+			})
+		})
+
+		Context("DualStack test (IPRanges along with old range)", func() {
+			BeforeEach(func() {
+				const dualstackPodName = "whereabouts-dualstack-test"
+				var err error
+
+				netAttachDefDualStack = macvlanNetworkWithWhereaboutsIPAMNetwork(testDualStackNetworkName, testNamespace, ipv4TestRange, testIPRangesDualStack)
+
+				By("creating DualStack NetworkAttachmentDefinition for whereabouts")
+				_, err = clientInfo.AddNetAttachDef(netAttachDefDualStack)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("creating a pod with whereabouts net-attach-def")
+				pod, err = clientInfo.ProvisionPod(
+					dualstackPodName,
+					testNamespace,
+					podTierLabel(dualstackPodName),
+					entities.PodNetworkSelectionElements(testDualStackNetworkName),
+				)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				By("deleting pod with whereabouts net-attach-def")
+				Expect(clientInfo.DeletePod(pod)).To(Succeed())
+				By("deleting DualStack NetworkAttachmentDefinition for whereabouts")
+				Expect(clientInfo.DelNetAttachDef(netAttachDefDualStack)).To(Succeed())
 			})
 
 			It("allocates a single pod within the correct IP ranges", func() {
