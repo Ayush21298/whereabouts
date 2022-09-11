@@ -77,7 +77,7 @@ var _ = Describe("Whereabouts functionality", func() {
 			clientInfo, err = wbtestclient.NewClientInfo(config)
 			Expect(err).NotTo(HaveOccurred())
 
-			netAttachDef = macvlanNetworkWithWhereaboutsIPAMNetwork(testNetworkName, testNamespace, ipv4TestRange, testIPRanges)
+			netAttachDef = macvlanNetworkWithWhereaboutsIPAMNetwork(testNetworkName, testNamespace, ipv4TestRange, []string {})
 
 			By("creating a NetworkAttachmentDefinition for whereabouts")
 			_, err = clientInfo.AddNetAttachDef(netAttachDef)
