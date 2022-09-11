@@ -23,7 +23,7 @@ func (pc *Checker) MissingIPs() []string {
 	var mismatchedIPs []string
 	for _, pod := range pc.podList {
 		podIPs, err := retrievers.SecondaryIfaceIPValue(&pod)
-    podIP := podIPs[len(podIPs)-1]
+		podIP := podIPs[len(podIPs)-1]
 		if err != nil {
 			return []string{}
 		}
@@ -52,7 +52,7 @@ func (pc *Checker) StaleIPs() []string {
 		found := false
 		for _, pod := range pc.podList {
 			podIPs, err := retrievers.SecondaryIfaceIPValue(&pod)
-      podIP := podIPs[len(podIPs)-1]
+			podIP := podIPs[len(podIPs)-1]
 			if err != nil {
 				continue
 			}

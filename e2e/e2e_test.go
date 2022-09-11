@@ -57,9 +57,9 @@ var _ = Describe("Whereabouts functionality", func() {
 			pod          *core.Pod
 			replicaSet   *v1.ReplicaSet
 
-      dualStackIPv4Range = "11.11.0.0/16"
-      dualStackIPv6Range = "abcd::0/64"
-      testIPRanges       = []string { dualStackIPv4Range, dualStackIPv6Range }
+			dualStackIPv4Range = "11.11.0.0/16"
+			dualStackIPv6Range = "abcd::0/64"
+			//      testIPRanges       = []string { dualStackIPv4Range, dualStackIPv6Range }
 		)
 
 		BeforeEach(func() {
@@ -77,7 +77,7 @@ var _ = Describe("Whereabouts functionality", func() {
 			clientInfo, err = wbtestclient.NewClientInfo(config)
 			Expect(err).NotTo(HaveOccurred())
 
-			netAttachDef = macvlanNetworkWithWhereaboutsIPAMNetwork(testNetworkName, testNamespace, ipv4TestRange, []string {})
+			netAttachDef = macvlanNetworkWithWhereaboutsIPAMNetwork(testNetworkName, testNamespace, ipv4TestRange, []string{})
 
 			By("creating a NetworkAttachmentDefinition for whereabouts")
 			_, err = clientInfo.AddNetAttachDef(netAttachDef)
@@ -488,7 +488,7 @@ func macvlanNetworkWithWhereaboutsIPAMNetwork(networkName string, namespaceName 
             }
         ]
     }`, ipRange, createIPRanges(ipRanges))
-  fmt.Printf("Ayush test macvlanConfig: %s", macvlanConfig)
+	fmt.Printf("Ayush test macvlanConfig: %s", macvlanConfig)
 	return generateNetAttachDefSpec(networkName, namespaceName, macvlanConfig)
 }
 
@@ -506,11 +506,11 @@ func inRange(cidr string, ip string) error {
 }
 
 func createIPRanges(ranges []string) string {
-  formattedRanges := []string{}
-  for _, ipRange := range(ranges) {
-    singleRange := fmt.Sprintf(`{"range": "%s"}`, ipRange)
-    formattedRanges = append(formattedRanges, singleRange)
-  }
-  ipRanges := "[" + strings.Join(formattedRanges[:], ",") + "]"
-  return ipRanges
+	formattedRanges := []string{}
+	for _, ipRange := range ranges {
+		singleRange := fmt.Sprintf(`{"range": "%s"}`, ipRange)
+		formattedRanges = append(formattedRanges, singleRange)
+	}
+	ipRanges := "[" + strings.Join(formattedRanges[:], ",") + "]"
+	return ipRanges
 }
