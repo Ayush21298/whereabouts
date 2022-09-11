@@ -488,6 +488,7 @@ func macvlanNetworkWithWhereaboutsIPAMNetwork(networkName string, namespaceName 
             }
         ]
     }`, ipRange, createIPRanges(ipRanges))
+  fmt.Printf("Ayush test macvlanConfig: %s", macvlanConfig)
 	return generateNetAttachDefSpec(networkName, namespaceName, macvlanConfig)
 }
 
